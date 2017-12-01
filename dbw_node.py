@@ -14,23 +14,21 @@ waypoint_updater` node.
 
 You will subscribe to `/twist_cmd` message which provides the proposed linear and 
 angular velocities.
-You can subscribe to any other message that you find important or refer to the document for list
-of messages subscribed to by the reference implementation of this node.
 
-One thing to keep in mind while building this node and the `twist_controller` class is the status
-of `dbw_enabled`. While in the simulator, its enabled all the time, in the real car, that will
-not be the case. This may cause your PID controller to accumulate error because the car could
-temporarily be driven by a human instead of your controller.
+One thing to keep in mind while building this node and the `twist_controller` 
+class is the status of `dbw_enabled`. While in the simulator, its enabled all the 
+time, in the real car, that will not be the case. This may cause your PID controller 
+to accumulate error because the car could temporarily be driven by a human instead 
+of your controller.
 
-We have provided two launch files with this node. Vehicle specific values (like vehicle_mass,
-wheel_base) etc should not be altered in these files.
+We have provided two launch files with this node. Vehicle specific values (like 
+vehicle_mass, wheel_base) etc should not be altered in these files.
 
-We have also provided some reference implementations for PID controller and other utility classes.
-You are free to use them or build your own.
+We have also provided some reference implementations for PID controller and other 
+utility classes. You are free to use them or build your own.
 
-Once you have the proposed throttle, brake, and steer values, publish it on the various publishers
-that we have created in the `__init__` function.
-
+Once you have the proposed throttle, brake, and steer values, publish it on the 
+various publishers that we have created in the `__init__` function.
 '''
 
 class DBWNode(object):
@@ -40,9 +38,9 @@ class DBWNode(object):
 		rospy.init_node('dbw_node', log_level=rospy.DEBUG)
 		rospy.logdebug ("In DBWNode:__init__\n")
 
-		self.proposed_linear_vel = None
-		self.proposed_angular_vel = None
-		self.current_linear_vel = None
+		self.proposed_linear_vel = 0.0
+		self.proposed_angular_vel = 0.0
+		self.current_linear_vel = 0.0
 		self.dbw_enabled = False
 
 		vehicle_mass = rospy.get_param('~vehicle_mass', 1736.35)
@@ -75,14 +73,26 @@ class DBWNode(object):
 
 
 	#-------------------------------------------------------------
+	# keep looping 
 	def loop(self):
 		rospy.logdebug("In dbw_node:loop\n")
 
 		rate = rospy.Rate(50) # 50Hz
 		while not rospy.is_shutdown():
-      # TODO:
-			if self.current_linear_vel is None or self.proposed_linear_vel is None \
-															or not self.dbw_enabled:
+			#-------------------------------------------------      
+			# TODO:
+			# wait for current_vel & dbw_enabled from sim; 
+			# and proposed_linear from WPFollower
+			#-------------------------------------------------
+#			if self.current_linear_vel is 0 or self.proposed_linear_vel is 0 \
+#						or not self.dbw_enabled
+
+			if self.proposed_linear_vel is 0 :
+
+				rospy.logdebug("waiting for info to publish throttle, brake, steer")
+	
+				rospy.logdebug("cur_lin_vel = %f, proposed_lin_vel = %f, dbw_enabled=%d", 
+										self.current_linear_vel, self.proposed_linear_vel, self.dbw_enabled)
 				continue
 
 			throttle, brake, steer = self.controller.control( self.proposed_linear_vel,
@@ -92,35 +102,50 @@ class DBWNode(object):
 			
 			self.publish(throttle, brake, steer)
 
-			rospy.logdebug("calculated throttle = %f; brake = %f; steer = %f\n", throttle, brake, steer)			
+			rospy.logdebug("calculated throttle = %f; brake = %f; steer = %f\n", 
+												throttle, brake, steer)			
 			rate.sleep()
 
-	#-------------------------------------------------------------
+
+	#-----------------------------------------------------------------------
+	# callback for subscribing to dbw_enabled published msg by the simulator
+	#-----------------------------------------------------------------------
 	def dbw_enabled_cb(self, msg):
+
 		self.dbw_enabled = msg.data
 		rospy.loginfo('TwistController: dbw_enabled = ' + str(self.dbw_enabled))
 
 
-	#-------------------------------------------------------------
+	#----------------------------------------------------------------------------
+	# callback for subscribing to current_velocity msg published by the simulator
+	#----------------------------------------------------------------------------
 	def current_velocity_cb(self, msg):
+
 		rospy.logdebug("In dbw_node:current_velocity_cb()\n")
 		self.current_linear_vel = msg.twist.linear.x
 		rospy.logdebug("current_velocity_cb = %f\n", self.current_linear_vel)
 
 
-	#-------------------------------------------------------------
+	#---------------------------------------------------------------------
+	# callback for subscribing to twist_cmd published by Waypoint Follower
+	#---------------------------------------------------------------------
 	def twist_cmd_cb(self, msg):
-		rospy.logdebug("In dbw_node:twist_cmd_cb()\n")
+
+#		rospy.logdebug("In dbw_node:twist_cmd_cb()\n")
 		self.proposed_linear_vel = msg.twist.linear.x
 		self.proposed_angular_vel = msg.twist.angular.z
-	
-		rospy.logdebug("linear velocity = %f, angular velocity = %f", 
-					self.proposed_linear_vel, self.proposed_angular_vel)
+
+		if self.proposed_linear_vel > 0:	
+			rospy.logdebug("In twist_cmd_cb: linear velocity = %f, angular velocity = %f", 
+											self.proposed_linear_vel, self.proposed_angular_vel)
 
 
 
-	#-------------------------------------------------------------
+	#--------------------------------------------------------------------
+	# called from loop 
+	#--------------------------------------------------------------------
 	def publish(self, throttle, brake, steer):
+
 		rospy.logdebug("In dbw_node:publish\n")
 
 		tcmd = ThrottleCmd()
@@ -143,3 +168,5 @@ class DBWNode(object):
 #------------------------------------------------------------
 if __name__ == '__main__':
     DBWNode()
+
+
