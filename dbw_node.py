@@ -82,7 +82,7 @@ class DBWNode(object):
 	def loop(self):
 		rospy.logdebug("In dbw_node:loop\n")
 		
-		rate = rospy.Rate(2) # 50Hz
+		rate = rospy.Rate(50) # 50Hz
 		while not rospy.is_shutdown():
 			#-------------------------------------------------      
 			# TODO:
@@ -100,7 +100,7 @@ class DBWNode(object):
 																												self.dbw_enabled )
 	
 			self.publish(throttle, brake, steer)
-			rospy.logwarn("DWV-loop: Published throttle: %s, brake: %s, steering: %s", throttle, brake, steer)
+			rospy.logwarn("DWB-loop: Published throttle: %s, brake: %s, steering: %s", throttle, brake, steer)
 
 			rate.sleep()
 
