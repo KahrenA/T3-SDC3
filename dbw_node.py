@@ -31,6 +31,7 @@ Once you have the proposed throttle, brake, and steer values, publish it on the
 various publishers that we have created in the `__init__` function.
 '''
 
+POINTS_TO_FIT = 10
 class DBWNode(object):
     
 	#-------------------------------------------------------------
@@ -38,10 +39,14 @@ class DBWNode(object):
 		rospy.init_node('dbw_node', log_level=rospy.DEBUG)
 		rospy.logdebug ("In DBWNode:__init__\n")
 
-		self.proposed_linear_vel = 0.0
-		self.proposed_angular_vel = 0.0
-		self.current_linear_vel = 0.0
+		self.twist_cmd = None
+		self.twist_cmd_linear_vel = None
+		self.twist_cmd_angular_vel = None
+		self.velocity = None
+		self.current_linear_vel = None
+		self.current_angular_vel = None
 		self.dbw_enabled = False
+		self.waypoints = None # final waypoints
 
 		vehicle_mass = rospy.get_param('~vehicle_mass', 1736.35)
 		fuel_capacity = rospy.get_param('~fuel_capacity', 13.5)
@@ -76,34 +81,27 @@ class DBWNode(object):
 	# keep looping 
 	def loop(self):
 		rospy.logdebug("In dbw_node:loop\n")
-
-		rate = rospy.Rate(50) # 50Hz
+		
+		rate = rospy.Rate(2) # 50Hz
 		while not rospy.is_shutdown():
 			#-------------------------------------------------      
 			# TODO:
 			# wait for current_vel & dbw_enabled from sim; 
 			# and proposed_linear from WPFollower
 			#-------------------------------------------------
-#			if self.current_linear_vel is 0 or self.proposed_linear_vel is 0 \
-#						or not self.dbw_enabled
 
-			if self.proposed_linear_vel is 0 :
-
-				rospy.logdebug("waiting for info to publish throttle, brake, steer")
-	
-				rospy.logdebug("cur_lin_vel = %f, proposed_lin_vel = %f, dbw_enabled=%d", 
-										self.current_linear_vel, self.proposed_linear_vel, self.dbw_enabled)
+#			data = [self.velocity, self.waypoints, self.current_ego_pose]
+			if (self.velocity is None) or ( self.twist_linear_vel is None) or (not self.dbw_enabled) :
 				continue
-
-			throttle, brake, steer = self.controller.control( self.proposed_linear_vel,
-                																				self.proposed_angular_vel,
+						
+			throttle, brake, steer = self.controller.control( self.twist_cmd_linear_vel,
+       	        																				self.twist_cmd_angular_vel,
 																				                self.current_linear_vel,
 																												self.dbw_enabled )
-			
+	
 			self.publish(throttle, brake, steer)
+			rospy.logwarn("DWV-loop: Published throttle: %s, brake: %s, steering: %s", throttle, brake, steer)
 
-			rospy.logdebug("calculated throttle = %f; brake = %f; steer = %f\n", 
-												throttle, brake, steer)			
 			rate.sleep()
 
 
@@ -112,8 +110,19 @@ class DBWNode(object):
 	#-----------------------------------------------------------------------
 	def dbw_enabled_cb(self, msg):
 
-		self.dbw_enabled = msg.data
-		rospy.loginfo('TwistController: dbw_enabled = ' + str(self.dbw_enabled))
+		self.dbw_enabled = bool(msg.data)
+
+		# Enabled self-driving mode will publish throttle, steer and brake mode.
+		if self.dbw_enabled:
+			rospy.logwarn("**** ============================ ****")
+			rospy.logwarn("**** Self-Driving Mode Activated  ****")
+			rospy.logwarn("**** ============================ ****")
+		else:
+			rospy.logwarn("**** ============================= ****")
+			rospy.logwarn("**** Manual Driving Mode Activated ****")
+			rospy.logwarn("**** ============================= ****")
+
+
 
 
 	#----------------------------------------------------------------------------
@@ -121,9 +130,11 @@ class DBWNode(object):
 	#----------------------------------------------------------------------------
 	def current_velocity_cb(self, msg):
 
-		rospy.logdebug("In dbw_node:current_velocity_cb()\n")
+#		rospy.logdebug("In dbw_node:current_velocity_cb()\n")
+		self.velocity = msg.twist
 		self.current_linear_vel = msg.twist.linear.x
-		rospy.logdebug("current_velocity_cb = %f\n", self.current_linear_vel)
+		self.current_angular_vel = msg.twist.angular.z
+#		rospy.logwarn("current_velocity_cb from simulator = %f\n", self.current_linear_vel)
 
 
 	#---------------------------------------------------------------------
@@ -132,12 +143,11 @@ class DBWNode(object):
 	def twist_cmd_cb(self, msg):
 
 #		rospy.logdebug("In dbw_node:twist_cmd_cb()\n")
-		self.proposed_linear_vel = msg.twist.linear.x
-		self.proposed_angular_vel = msg.twist.angular.z
+		self.twist_linear_vel = msg.twist.linear.x
+		self.twist_angular_vel = msg.twist.angular.z
 
-		if self.proposed_linear_vel > 0:	
-			rospy.logdebug("In twist_cmd_cb: linear velocity = %f, angular velocity = %f", 
-											self.proposed_linear_vel, self.proposed_angular_vel)
+#		rospy.logwarn("In twist_cmd_cb from WPFollower: linear velocity = %f, angular velocity = %f\n", 
+#											self.twist_linear_vel, self.twist_angular_vel)
 
 
 
@@ -146,7 +156,7 @@ class DBWNode(object):
 	#--------------------------------------------------------------------
 	def publish(self, throttle, brake, steer):
 
-		rospy.logdebug("In dbw_node:publish\n")
+		rospy.logdebug("In dbw_node:publish throttle/brake/steer!\n ")
 
 		tcmd = ThrottleCmd()
 		tcmd.enable = True

@@ -218,7 +218,7 @@ class Bridge(object):
 																																	self.angular))
 		#...........................................................................
 
-		rospy.logdebug("Bridge:PubO incoming - lin_vel = %f, ang_vel = %f", self.vel, self.angular)
+		rospy.logdebug("Bridge:PubO incoming - lin_vel = %f, ang_vel = %f \n", self.vel, self.angular)
 
 
 	#-----------------------------------------------------------------------------------
@@ -238,7 +238,7 @@ class Bridge(object):
 		self.publishers['brake_report'].publish(self.create_float(brake))
 		#.......................................................................
 
-		rospy.logdebug("Incoming - steering angle = %s; throttle = %s, brake = %s" , 
+		rospy.logdebug("Incoming - steering angle = %s; throttle = %s, brake = %s\n" , 
 												steering, throttle, brake) 
 
 

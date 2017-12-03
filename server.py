@@ -36,7 +36,7 @@ bridge = Bridge(conf, send)
 @sio.on('telemetry')
 def telemetry(sid, data):
 
-	rospy.logdebug("In server:telemetry")
+	rospy.logdebug("In server:telemetry\n")
 
 
 	global dbw_enable
@@ -57,35 +57,35 @@ def telemetry(sid, data):
 #------------------------------------------------------
 @sio.on('control')
 def control(sid, data):
-	rospy.logdebug("In server:control")
+	rospy.logdebug("In server:control\n")
 	bridge.publish_controls(data)
 
 
 #------------------------------------------------------
 @sio.on('obstacle')
 def obstacle(sid, data):
-	rospy.logdebug("In server:obstacle")
+	rospy.logdebug("In server:obstacle\n")
 	bridge.publish_obstacles(data)
 
 
 #------------------------------------------------------
 @sio.on('lidar')
 def obstacle(sid, data):
-	rospy.logdebug("In server:lidar")
+	rospy.logdebug("In server:lidar\n")
 	bridge.publish_lidar(data)
 
 
 #------------------------------------------------------
 @sio.on('trafficlights')
 def trafficlights(sid, data):
-	rospy.logdebug("In server:trafficlights")
+	rospy.logdebug("In server:trafficlights\n")
 	bridge.publish_traffic(data)
 
 
 #------------------------------------------------------
 @sio.on('image')
 def image(sid, data):
-	rospy.logdebug("In server:image")
+	rospy.logdebug("In server:image\n")
 	bridge.publish_camera(data)
 
 
