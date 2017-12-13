@@ -37,27 +37,31 @@ class DBWNode(object):
 	#-------------------------------------------------------------
 	def __init__(self):
 		rospy.init_node('dbw_node', log_level=rospy.DEBUG)
-		rospy.logdebug ("In DBWNode:__init__\n")
 
 		self.twist_cmd = None
-		self.twist_cmd_linear_vel = None
-		self.twist_cmd_angular_vel = None
+		self.twist_linear_vel = 0.0
+		self.twist_angular_vel = 0.0
 		self.velocity = None
-		self.current_linear_vel = None
-		self.current_angular_vel = None
+		self.current_linear_vel = 0.0
+		self.current_angular_vel = 0.0
 		self.dbw_enabled = False
 		self.waypoints = None # final waypoints
 
-		vehicle_mass = rospy.get_param('~vehicle_mass', 1736.35)
-		fuel_capacity = rospy.get_param('~fuel_capacity', 13.5)
-		brake_deadband = rospy.get_param('~brake_deadband', .1)
-		decel_limit = rospy.get_param('~decel_limit', -5)
-		accel_limit = rospy.get_param('~accel_limit', 1.)
-		wheel_radius = rospy.get_param('~wheel_radius', 0.2413)
-		wheel_base = rospy.get_param('~wheel_base', 2.8498)
-		steer_ratio = rospy.get_param('~steer_ratio', 14.8)
-		max_lat_accel = rospy.get_param('~max_lat_accel', 3.)
-		max_steer_angle = rospy.get_param('~max_steer_angle', 8.)
+		self.vehicle_mass = rospy.get_param('~vehicle_mass', 1736.35)
+		self.fuel_capacity = rospy.get_param('~fuel_capacity', 13.5)
+		self.brake_deadband = rospy.get_param('~brake_deadband', .1)
+		self.decel_limit = rospy.get_param('~decel_limit', -5)
+		self.accel_limit = rospy.get_param('~accel_limit', 1.)
+		self.wheel_radius = rospy.get_param('~wheel_radius', 0.2413)
+		self.wheel_base = rospy.get_param('~wheel_base', 2.8498)
+		self.steer_ratio = rospy.get_param('~steer_ratio', 14.8)
+		self.max_lat_accel = rospy.get_param('~max_lat_accel', 3.)
+		self.max_steer_angle = rospy.get_param('~max_steer_angle', 8.)
+		self.max_throttle = rospy.get_param('~max_throttle_proportional', 0.8)
+		self.max_brake = rospy.get_param('~max_brake_proportional', -0.8)
+
+		rospy.logwarn("DBW: wheel_base=%f, max_steer_ratio=%f, max_throttle=%f, max_brake=%f",
+							self.wheel_base, self.steer_ratio, self.max_throttle, self.max_brake)	
 
 		self.steer_pub = rospy.Publisher('/vehicle/steering_cmd',
 				                             					SteeringCmd, queue_size=1)
@@ -67,40 +71,57 @@ class DBWNode(object):
 				                             					BrakeCmd, queue_size=1)
 
 		# TODO: Create `TwistController` object
-		self.controller = Controller()
+		self.controller = Controller(self.wheel_base, self.steer_ratio, 
+																	self.max_lat_accel, self.max_steer_angle)
 
 		# TODO: Subscribe to all the topics you need to
 		rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.dbw_enabled_cb)
 		rospy.Subscriber('/current_velocity', TwistStamped, self.current_velocity_cb)
 		rospy.Subscriber('/twist_cmd', TwistStamped, self.twist_cmd_cb)
 
+		rospy.logwarn ("In DBWNode:__init__ Done!")
 		self.loop()
 
 
-	#-------------------------------------------------------------
+	#---------------------------------------
 	# keep looping 
+	#---------------------------------------
 	def loop(self):
+
 		rospy.logdebug("In dbw_node:loop\n")
 		
 		rate = rospy.Rate(50) # 50Hz
 		while not rospy.is_shutdown():
+
 			#-------------------------------------------------      
 			# TODO:
 			# wait for current_vel & dbw_enabled from sim; 
 			# and proposed_linear from WPFollower
 			#-------------------------------------------------
 
-#			data = [self.velocity, self.waypoints, self.current_ego_pose]
-			if (self.velocity is None) or ( self.twist_linear_vel is None) or (not self.dbw_enabled) :
+			if (self.current_linear_vel is 0.0) or (self.twist_linear_vel is 0.0) or (not self.dbw_enabled) :
 				continue
 						
-			throttle, brake, steer = self.controller.control( self.twist_cmd_linear_vel,
-       	        																				self.twist_cmd_angular_vel,
-																				                self.current_linear_vel,
-																												self.dbw_enabled )
+			steer = self.controller.control_steer( self.twist_linear_vel,
+       																				self.twist_angular_vel,
+																	              self.current_linear_vel)
 	
+			throttle, brake = self.controller.control_throttle_brake( self.twist_linear_vel,
+       																													self.current_linear_vel, 
+																																self.max_throttle, 
+																																self.max_brake) 																							
+	
+			#---------------------
+			# For debug
+			#---------------------
+			#steer = 0.0001 
+			#throttle = 0.4
+			#brake = 0.0
+			#---------------------
+
 			self.publish(throttle, brake, steer)
-			rospy.logwarn("DWB-loop: Published throttle: %s, brake: %s, steering: %s", throttle, brake, steer)
+
+#			rospy.logwarn("DWB-loop: Published throttle: %s, brake: %s, steering: %s", throttle, brake, steer)
 
 			rate.sleep()
 
@@ -130,11 +151,11 @@ class DBWNode(object):
 	#----------------------------------------------------------------------------
 	def current_velocity_cb(self, msg):
 
-#		rospy.logdebug("In dbw_node:current_velocity_cb()\n")
+#		rospy.logdebug("In dbw_node:current_velocity_cb()")
 		self.velocity = msg.twist
 		self.current_linear_vel = msg.twist.linear.x
 		self.current_angular_vel = msg.twist.angular.z
-#		rospy.logwarn("current_velocity_cb from simulator = %f\n", self.current_linear_vel)
+		rospy.logwarn("DBW:current_velocity_cb from simulator = %f", self.current_linear_vel)
 
 
 	#---------------------------------------------------------------------
@@ -146,8 +167,9 @@ class DBWNode(object):
 		self.twist_linear_vel = msg.twist.linear.x
 		self.twist_angular_vel = msg.twist.angular.z
 
-#		rospy.logwarn("In twist_cmd_cb from WPFollower: linear velocity = %f, angular velocity = %f\n", 
-#											self.twist_linear_vel, self.twist_angular_vel)
+		if self.twist_linear_vel > 0.5:
+			rospy.logwarn("In dbw:twist_cmd_cb : proposed_linear vel = %f, proposed_angular vel = %f", 
+											self.twist_linear_vel, self.twist_angular_vel)
 
 
 
@@ -156,7 +178,7 @@ class DBWNode(object):
 	#--------------------------------------------------------------------
 	def publish(self, throttle, brake, steer):
 
-		rospy.logdebug("In dbw_node:publish throttle/brake/steer!\n ")
+		rospy.logdebug("In dbw:publish throttle/brake/steer! ")
 
 		tcmd = ThrottleCmd()
 		tcmd.enable = True

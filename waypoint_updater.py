@@ -3,6 +3,7 @@
 import rospy
 from geometry_msgs.msg import PoseStamped
 from styx_msgs.msg import Lane, Waypoint
+from std_msgs.msg import Int32
 
 import math
 
@@ -17,7 +18,7 @@ their current status in `/vehicle/traffic_lights` message. You can use this mess
 build this node as well as to verify your TL classifier.1
 '''
 
-LOOKAHEAD_WPS = 200 				# Number of waypoints we will publish. was 200
+LOOKAHEAD_WPS = 100 				# Number of waypoints we will publish. was 200
 
 
 class WaypointUpdater(object):
@@ -25,19 +26,22 @@ class WaypointUpdater(object):
 	#-------------------------------------------------------------
 	def __init__(self):
 		rospy.init_node('waypoint_updater', log_level=rospy.DEBUG)
-		rospy.logdebug ("In WaypointUpdater:__init__\n")
-
+	
 		rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
-		rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
+		self.base_wp_sub = rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
 
 		# TODO: Add a subscriber for /traffic_waypoint and /obstacle_waypoint below
-
+		rospy.Subscriber('/traffic_waypoint', Int32, self.traffic_cb)
 
 		self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
 
 		# TODO: Add other member variables you need below
 		self.car_pose = None
 		self.base_waypoints = []
+		self.frame_id = None
+		self.light_i = None		# to be used when we get tf callback
+
+		rospy.logwarn ("WaypointUpdater:__init__ done!")
 
 		#rospy.spin()
 		self.loop()
@@ -46,23 +50,26 @@ class WaypointUpdater(object):
 	#------------------------------------------------------------
 	def loop(self):
 
-		rospy.logdebug ("In WPUpdater loop\n")
-		rate = rospy.Rate(2)
+		rospy.logdebug ("In WPU loop\n")
+		rate = rospy.Rate(50)
 		while not rospy.is_shutdown():
-
-			rate.sleep()
 
 			# wait for base_waypoints and pose info then 
 			if self.base_waypoints is [] or self.car_pose is None:
+				rate.sleep()
 				continue
 	
-			rospy.logdebug ("In loop: have waypoints and car_pose\n")
+#			rospy.logwarn ("In WPU loop: have waypoints and car_pose")
 			
 			# get the index closest waypoint to car 
 			closest_wp_index = get_closest_waypoint(self.base_waypoints, self.car_pose)
-			rospy.logdebug("closest_wo_index = %d\n", closest_wp_index)
+			rospy.logwarn("WPULoop - closest_wo_index = %d", closest_wp_index)
 
-			# Include 200 WPs starting at index
+			if closest_wp_index == -1 :
+				rate.sleep()
+				continue
+
+#---------------------------------------------------------------
 			waypoints_ahead = []
 			for i in range(LOOKAHEAD_WPS):
 				if closest_wp_index + i < len(self.base_waypoints):
@@ -70,14 +77,22 @@ class WaypointUpdater(object):
 
 			# structure the data to match the expected styx_msgs/Lane form
 			lane = Lane()
-			lane.waypoints = waypoints_ahead  # list of waypoints ahead of the car
-			lane.header.stamp = rospy.Time(0)  # timestamp
+			lane.waypoints = waypoints_ahead  		# list of waypoints ahead of the car
+			lane.header.stamp = rospy.Time.now()  # timestamp
+			lane.header.frame_id = self.frame_id
+#-----------------------------------------------------------------
+#			for w in enumerate(lane.waypoints):
+#				w.twist.twist.linear.x = 25.0				# set the speed of the wps 
+
+#			lane.header.stamp = rospy.Time.now()  # timestamp
+#			lane.header.frame_id = self.frame_id
+#-----------------------------------------------------------------
 
 			# publish Lane 
-			rospy.logdebug ("In loop: about to publish lane\n")
+			rospy.logdebug ("In WPUloop: about to publish lane")
 			self.final_waypoints_pub.publish(lane)
 
-		return
+			rate.sleep()
 
 
 
@@ -87,7 +102,7 @@ class WaypointUpdater(object):
 	##======================================================
 	def pose_cb(self, msg):
 		# TODO: Implement
-		rospy.logdebug ("In WPUpdater:pose_cb\n")
+		rospy.logdebug ("In WPU:pose_cb\n")
 
 		#------------------------------------------------------------------------
 		# the msg will be in PoseStamped format
@@ -97,19 +112,21 @@ class WaypointUpdater(object):
 		#------------------------------------------------------------------------
 		self.header = msg.header
 		self.car_pose = msg.pose					# this contains position and orientation
+		self.frame_id = msg.header.frame_id
 
-		rospy.logdebug("car_pose = %d:%d \n", self.car_pose.position.x, 
+		rospy.logwarn("WPU_cb: car_pose = %d:%d \n", self.car_pose.position.x, 
+#		rospy.logdebug("WPU_cb: car_pose = %d:%d \n", self.car_pose.position.x, 
 																							self.car_pose.position.y)
-																						
-		return
+	
 
 	#================================================================
 	# Subscribed to /base_waypoints published by Waypoint_Loader
 	# Waypoint_Loader calls with waypoints[] 
 	#================================================================
 	def waypoints_cb(self, msg_wypts):
+		
 		# TODO: Implement
-		rospy.logdebug("In WPUpdater:waypoints_cb\n")
+		rospy.logdebug("In WPUpdater:waypoints_cb")
 		
 		#------------------------------------------------------------------------
 		# waypoints styx_msgs/Waypoint[] waypoints
@@ -132,7 +149,8 @@ class WaypointUpdater(object):
 		#------------------------------------------------------------------------
 		self.base_waypoints = msg_wypts.waypoints
 
-		rospy.logdebug("len of waypoints = %d\n", len(msg_wypts.waypoints) )
+		rospy.logwarn("WPU: wpcb: # of waypoints = %d", len(msg_wypts.waypoints) )
+#		rospy.logdebug("WPU: wpcb: # of waypoints = %d", len(msg_wypts.waypoints) )
 
 		rospy.logdebug("position = %d:%d:%d \n", 
 											self.base_waypoints[0].pose.pose.position.x, 
@@ -155,48 +173,57 @@ class WaypointUpdater(object):
 											self.base_waypoints[0].twist.twist.angular.y,	
 											self.base_waypoints[0].twist.twist.angular.z)
 
+		# can unsubscribe here
+		self.base_wp_sub.unregister()
+		 
 		return
 
 	#-------------------------------------------------------------
 	# Callback for /traffic_waypoint message, once we subscribe
 	#-------------------------------------------------------------
 	def traffic_cb(self, msg):
-		# TODO:  Implement
-		rospy.logdebug("In WPUpdater:traffic_cb\n")
-		pass
+		
+#		rospy.logdebug("In WPU:traffic_cb")
+		rospy.logwarn("In WPU:traffic_cb")
 
+		self.light_i = msg.data
+		
 
 	#--------------------------------------------------------------
 	# Callback for /obstacle_waypoint message, once we subscribe
 	#--------------------------------------------------------------
 	def obstacle_cb(self, msg):
+
 		# TODO:  IMplement
-		rospy.logdebug("In WPUpdater:obstacle_cb\n")
-		pass
+#		rospy.logdebug("In WPU:obstacle_cb")
+		rospy.logwarn("In WPU:obstacle_cb")
+
 
 
 	#--------------------------------------------------------------
-	# 
+	# No caller yet? 
 	#--------------------------------------------------------------
 	def get_waypoint_velocity(self, waypoint):
-		rospy.logdebug("In WPUpdater:get_waypoint_velocity\n")
+
+		rospy.logwarn("In WPU:get_waypoint_velocity = %f", 
+																	waypoint.twist.twist.linear.x)
 		return waypoint.twist.twist.linear.x
 
 
 	#--------------------------------------------------------------
-	#
+	# No caller yet??
 	#--------------------------------------------------------------
 	def set_waypoint_velocity(self, waypoints, waypoint, velocity):
-		rospy.logdebug("In WPUpdater:set_waypoint_velocity\n")
+		rospy.logwarn("In WPUr:set_waypoint_velocity = %f", velocity)
 		waypoints[waypoint].twist.twist.linear.x = velocity
 
 
 	#--------------------------------------------------------------
-	#
+	# No caller yet?? 
 	#--------------------------------------------------------------
 	def distance(self, waypoints, wp1, wp2):
 
-		rospy.logdebug("In WPUpdater:distance\n")
+		rospy.logdebug("In WPU:distance")
 
 		dist = 0
 		dl = lambda a, b: math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2  + (a.z-b.z)**2)
@@ -237,17 +264,6 @@ def get_closest_waypoint(waypoints, pose):
 		if distance < closest_distance:
 			closest_distance = distance
 			closest_wp_index = i
-
-	# now we (hopefully) have the closest point
-#	x = waypoints[closest_wp_index].pose.pose.position.x
-#	y = waypoints[closest_wp_index].pose.pose.position.y
-
-#	heading = np.arctan2((y-pose_y), (x-pose_x))
-#	angle = np.abs(theta - heading)
-#	if angle > np.pi/4.:
-#		  closest_wp_index += 1
-#		  if closest_wp_index >= len(waypoints):
-#		      closest_wp_index = 0
 
 	return closest_wp_index
 
