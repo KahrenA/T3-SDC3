@@ -110,15 +110,6 @@ class DBWNode(object):
        																													self.current_linear_vel, 
 																																self.max_throttle, 
 																																self.max_brake) 																							
-	
-			#---------------------
-			# For debug
-			#---------------------
-			#steer = 0.0001 
-			#throttle = 0.4
-			#brake = 0.0
-			#---------------------
-
 			self.publish(throttle, brake, steer)
 
 #			rospy.logwarn("DWB-loop: Published throttle: %s, brake: %s, steering: %s", throttle, brake, steer)
@@ -151,11 +142,10 @@ class DBWNode(object):
 	#----------------------------------------------------------------------------
 	def current_velocity_cb(self, msg):
 
-#		rospy.logdebug("In dbw_node:current_velocity_cb()")
 		self.velocity = msg.twist
 		self.current_linear_vel = msg.twist.linear.x
 		self.current_angular_vel = msg.twist.angular.z
-		rospy.logwarn("DBW:current_velocity_cb from simulator = %f", self.current_linear_vel)
+#		rospy.logwarn("DBW:current_velocity_cb from simulator = %f", self.current_linear_vel)
 
 
 	#---------------------------------------------------------------------
@@ -163,13 +153,12 @@ class DBWNode(object):
 	#---------------------------------------------------------------------
 	def twist_cmd_cb(self, msg):
 
-#		rospy.logdebug("In dbw_node:twist_cmd_cb()\n")
 		self.twist_linear_vel = msg.twist.linear.x
 		self.twist_angular_vel = msg.twist.angular.z
 
-		if self.twist_linear_vel > 0.5:
-			rospy.logwarn("In dbw:twist_cmd_cb : proposed_linear vel = %f, proposed_angular vel = %f", 
-											self.twist_linear_vel, self.twist_angular_vel)
+#		if self.twist_linear_vel > 0.5:
+#			rospy.logwarn("In dbw:twist_cmd_cb : proposed_linear vel = %f, proposed_angular vel = %f", 
+#											self.twist_linear_vel, self.twist_angular_vel)
 
 
 
@@ -177,8 +166,6 @@ class DBWNode(object):
 	# called from loop 
 	#--------------------------------------------------------------------
 	def publish(self, throttle, brake, steer):
-
-		rospy.logdebug("In dbw:publish throttle/brake/steer! ")
 
 		tcmd = ThrottleCmd()
 		tcmd.enable = True

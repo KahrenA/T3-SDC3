@@ -72,21 +72,15 @@ class WaypointUpdater(object):
 #---------------------------------------------------------------
 			waypoints_ahead = []
 			for i in range(LOOKAHEAD_WPS):
-				if closest_wp_index + i < len(self.base_waypoints):
-				  waypoints_ahead.append(self.base_waypoints[closest_wp_index + i])
+				ix = (closest_wp_index + i) % len(self.base_waypoints)
+#				w.twist.twist.linear.x = 25.0				# set the speed of the wps 
+				waypoints_ahead.append(self.base_waypoints[ix])
 
 			# structure the data to match the expected styx_msgs/Lane form
 			lane = Lane()
 			lane.waypoints = waypoints_ahead  		# list of waypoints ahead of the car
 			lane.header.stamp = rospy.Time.now()  # timestamp
 			lane.header.frame_id = self.frame_id
-#-----------------------------------------------------------------
-#			for w in enumerate(lane.waypoints):
-#				w.twist.twist.linear.x = 25.0				# set the speed of the wps 
-
-#			lane.header.stamp = rospy.Time.now()  # timestamp
-#			lane.header.frame_id = self.frame_id
-#-----------------------------------------------------------------
 
 			# publish Lane 
 			rospy.logdebug ("In WPUloop: about to publish lane")
@@ -114,9 +108,8 @@ class WaypointUpdater(object):
 		self.car_pose = msg.pose					# this contains position and orientation
 		self.frame_id = msg.header.frame_id
 
-		rospy.logwarn("WPU_cb: car_pose = %d:%d \n", self.car_pose.position.x, 
-#		rospy.logdebug("WPU_cb: car_pose = %d:%d \n", self.car_pose.position.x, 
-																							self.car_pose.position.y)
+#		rospy.logwarn("WPU_cb: car_pose = %d:%d \n", self.car_pose.position.x, 
+#																							self.car_pose.position.y)
 	
 
 	#================================================================
@@ -150,7 +143,6 @@ class WaypointUpdater(object):
 		self.base_waypoints = msg_wypts.waypoints
 
 		rospy.logwarn("WPU: wpcb: # of waypoints = %d", len(msg_wypts.waypoints) )
-#		rospy.logdebug("WPU: wpcb: # of waypoints = %d", len(msg_wypts.waypoints) )
 
 		rospy.logdebug("position = %d:%d:%d \n", 
 											self.base_waypoints[0].pose.pose.position.x, 

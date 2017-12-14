@@ -32,10 +32,14 @@ class Controller(object):
 		duration = new_timestamp - self.timestamp
 		self.timestamp = new_timestamp						# save for next time 
 
+#		rospy.logwarn("TC:steer : sugg_vel_linear=%f curr_vel_linear=%f", 
+#																		proposed_vel_linear, current_linear_vel)
+
+
 		yaw_steer = self.yaw_controller.get_steering( proposed_vel_linear, 
 																									proposed_vel_angular,
 																									current_linear_vel )
-		rospy.logwarn("TC:steer : yaw_steer=%f", yaw_steer)
+#		rospy.logwarn("TC:steer : yaw_steer=%f", yaw_steer)
 
 		return yaw_steer
 																									
@@ -46,24 +50,26 @@ class Controller(object):
 
 		vel_diff = proposed_vel_linear - current_vel_linear
 
-		rospy.logwarn("TC:t_b : sugg_vel_linear=%f curr_vel_linear=%f vel_diff = %f", 
-											proposed_vel_linear, current_vel_linear, vel_diff)
+#		rospy.logwarn("TC:t_b : sugg_vel_linear=%f curr_vel_linear=%f vel_diff = %f", 
+#											proposed_vel_linear, current_vel_linear, vel_diff)
 
 		throttle = 0.0
 		brake = 0.0 
 
-		if vel_diff > 0.1:
-			throttle = vel_diff / proposed_vel_linear
-			if throttle > max_throttle:
-				throttle = max_throttle
+		# Let's prevent divide by 0
+		if proposed_vel_linear > 0.5:
+			if vel_diff > 0.1:
+				throttle = vel_diff / proposed_vel_linear
+				if throttle > max_throttle:
+					throttle = max_throttle
 
 
-		elif vel_diff < -0.1:
-			brake = vel_diff / proposed_vel_linear 
-			if brake < max_brake:
-				brake = max_brake
+			elif vel_diff < -0.1:
+				brake = vel_diff / proposed_vel_linear 
+				if brake < max_brake:
+					brake = max_brake
 
-		rospy.logwarn("TC:t_b: throttle = %f --- brake = %f", throttle, brake)
+#		rospy.logwarn("TC:t_b: throttle = %f --- brake = %f", throttle, brake)
 			
 		return throttle, brake	
 
