@@ -175,10 +175,15 @@ class WaypointUpdater(object):
 	#-------------------------------------------------------------
 	def traffic_cb(self, msg):
 		
-#		rospy.logdebug("In WPU:traffic_cb")
 		rospy.logwarn("In WPU:traffic_cb")
 
-		self.light_i = msg.data
+		self.light_stop_wpix = msg.data
+
+		# zero out the velocity ar the index
+		
+	
+		# Expect to receive the index into Waypoints closest to the TL		
+		rospy.logwarn("WPU: received Waypoints ix=%d to reduce velocity", self.light_stop_wpix)
 		
 
 	#--------------------------------------------------------------
@@ -206,6 +211,7 @@ class WaypointUpdater(object):
 	# No caller yet??
 	#--------------------------------------------------------------
 	def set_waypoint_velocity(self, waypoints, waypoint, velocity):
+
 		rospy.logwarn("In WPUr:set_waypoint_velocity = %f", velocity)
 		waypoints[waypoint].twist.twist.linear.x = velocity
 
