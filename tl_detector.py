@@ -62,23 +62,24 @@ class TLDetector(object):
 			self.state_count = 0
 
 			self.light_to_wp_map = []
+			self.stop_wp = None
+			self.light_state = TrafficLight.UNKNOWN
 
 			rospy.logwarn("TLDetector_Init done!")
 			rospy.spin()
+
+
 
 		#-------------------------------------------------------------------
 		# callback for subscribing to /current_pose msg by sim/car
 		#-------------------------------------------------------------------
 		def pose_cb(self, msg):
 
-			if self.car_pose != None :
-				if (self.car_pose.pose.position.x == msg.pose.position.x) \
-															 and (self.car_pose.pose.position.y == msg.pose.position.y):
-					do_nothing = 1
-				else:
-					rospy.logwarn("tl_detector: Got car_pose = %f:%f msg_pose = %f:%f" , 
-													self.car_pose.pose.position.x, self.car_pose.pose.position.y, 
-														msg.pose.position.x, msg.pose.position.y)
+#			if self.car_pose != None :
+#				if ( int(self.car_pose.pose.position.x) != int(msg.pose.position.x) ) \
+#															or (int(self.car_pose.pose.position.y) != int(msg.pose.position.y) ):
+#				
+#					rospy.logwarn("tl_detector: Got car_pose = %d:%d", msg.pose.position.x, msg.pose.position.y)
 		
 			self.car_pose = msg		
 		
@@ -159,14 +160,23 @@ class TLDetector(object):
 			stop_wp, state = self.process_traffic_lights()
 			#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+			# no need to publish for the same stoplight... could CHECK LFOR SAME LIGHT STATE!!
+#			if self.stop_wp == stop_wp and self.light_state == state:		
+#			if self.stop_wp == stop_wp :		
+#				rospy.logwarn("Same stop_wp and same light state therefore will not re-publish!!!!")
+#				return
 
-			if state == TrafficLight.YELLOW or TrafficLight.state == TrafficLight.RED:
+			self.stop_wp = stop_wp
+			self.light_state = state
 
-				#^^^^^ Publish Red Light.  ^^^^^^^^^^^^^^^^^^^^^^^^^
-				self.upcoming_red_light_pub.publish(Int32(stop_wp))
-				# ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+			if state == TrafficLight.RED :
+				stop_wp *= -1			# our way of indicating RED to wp_updater
+		
+			#^^^^^ Publish Red Light to prepare to stop  ^^^^^^^^^^^^^
+			self.upcoming_red_light_pub.publish(Int32(stop_wp))
+			# ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-
+	
 
 
 
@@ -186,8 +196,7 @@ class TLDetector(object):
 		#----------------------------------------------------------------------
 		def process_traffic_lights(self):
 
-			# My algo: 
-			# 1 - determine closest traffic light to car 
+	
 			if self.car_pose is None:
 				return -1, TrafficLight.UNKNOWN 
 				
@@ -196,22 +205,25 @@ class TLDetector(object):
 				rospy.logerror("BAD RESULT! can't determine closest WP!")
 				return -1, TrafficLight.UNKNOWN 
 	
-			rospy.logwarn("process_traffic_light: closest wp index to car is %d", car_closest_wpix)
+			rospy.logwarn("process_traffic_light: closest wp index to car is %d", 
+													car_closest_wpix)
 
 			for i in range (len(self.light_to_wp_map)):
 				tl_closest_wpix = self.light_to_wp_map[i]			
-				rospy.logwarn("process_traffic_lights : self.light_to_wp_map[i] = %d", 	self.light_to_wp_map[i])
+#				rospy.logwarn("process_traffic_lights : self.light_to_wp_map[i] = %d", 
+#													self.light_to_wp_map[i])
 				if car_closest_wpix <= tl_closest_wpix :
 					break
 			
-			rospy.logwarn("Process_traffic_light: Closest TL to car is %d ", tl_closest_wpix)
+			rospy.logwarn("Process_traffic_light: Closest TL to car is %d ", 
+													tl_closest_wpix)
 						
 			
-			# List of positions that correspond to the line to stop in front of an intersection
+			# List of positions that correspond line to stop in front of an intersection
 			stop_line_positions = self.config['stop_line_positions']
 
 			stop_pos = stop_line_positions[i]
-			rospy.logwarn("stop_position is %d:%d", stop_pos[0], stop_pos[1])
+#			rospy.logwarn("stop_position is %d:%d", stop_pos[0], stop_pos[1])
 
 			stop_pose = self.create_pose(stop_pos[0], stop_pos[1], 0)
 
@@ -239,11 +251,11 @@ class TLDetector(object):
 
 			# -----------------------------------
 			# When simulating w/o classification
-			if light.state == TrafficLight.YELLOW or light.state == TrafficLight.RED:
-				return True 
-			else:
-				return False 
-			
+			# TrafficLight.YELLOW; TrafficLight.RED; TrafficLight.GREEN; TrafficLight.UNKNOWN
+			rospy.logwarn("GET_LIGHT_STATE:::::::::::::::::::::: TRAFFIC LIGHT STATE %d", light.state)
+			return light.state 
+		
+	
  			# -----------------------------------
 			# when we do classification ....        
 			if(not self.has_image):

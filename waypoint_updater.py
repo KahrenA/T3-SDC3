@@ -18,7 +18,7 @@ their current status in `/vehicle/traffic_lights` message. You can use this mess
 build this node as well as to verify your TL classifier.1
 '''
 
-LOOKAHEAD_WPS = 100 				# Number of waypoints we will publish. was 200
+LOOKAHEAD_WPS = 50 				# Number of waypoints we will publish. was 200
 
 
 class WaypointUpdater(object):
@@ -42,6 +42,8 @@ class WaypointUpdater(object):
 		self.light_i = None		# to be used when we get tf callback
 
 		self.closest_wp_index = None
+		self.light_stop_wpix = None
+		self.vel_incr = 0
 
 		rospy.logwarn ("WaypointUpdater:__init__ done!")
 
@@ -66,8 +68,8 @@ class WaypointUpdater(object):
 			# get the index closest waypoint to car 
 			index = get_closest_waypoint(self.base_waypoints, self.car_pose)
 
-			if index != self.closest_wp_index:
-				rospy.logwarn("WPULoop - closest_wp_index = %d", index)
+#			if index != self.closest_wp_index:
+#				rospy.logwarn("WPULoop - closest_wp_index = %d", index)
 
 			self.closest_wp_index = index
 
@@ -81,6 +83,8 @@ class WaypointUpdater(object):
 				ix = (self.closest_wp_index + i) % len(self.base_waypoints)
 				waypoints_ahead.append(self.base_waypoints[ix])
 
+#			rospy.logwarn("publishing Lane that starts from wp[%d] ----------> wp[%d]", self.closest_wp_index, self.closest_wp_index + LOOKAHEAD_WPS)
+
 			# structure the data to match the expected styx_msgs/Lane form
 			lane = Lane()
 			lane.waypoints = waypoints_ahead  		# list of waypoints ahead of the car
@@ -88,7 +92,7 @@ class WaypointUpdater(object):
 			lane.header.frame_id = self.frame_id
 
 			# publish Lane 
-			rospy.logdebug ("In WPUloop: about to publish lane")
+#			rospy.logwarn ("In WPUloop: about to publish lane")
 			self.final_waypoints_pub.publish(lane)
 
 			rate.sleep()
@@ -115,6 +119,9 @@ class WaypointUpdater(object):
 #		rospy.logwarn("WPU_cb: car_pose = %d:%d \n", self.car_pose.position.x, 
 #																							self.car_pose.position.y)
 	
+
+
+
 
 	#================================================================
 	# Subscribed to /base_waypoints published by Waypoint_Loader
@@ -174,42 +181,77 @@ class WaypointUpdater(object):
 		 
 		return
 
+
+
+
 	#-------------------------------------------------------------
 	# Callback for /traffic_waypoint message, once we subscribe
 	#-------------------------------------------------------------
 	def traffic_cb(self, msg):
-		
-		rospy.logwarn("In WPU:traffic_cb")
-
-		self.light_stop_wpix = msg.data
+	
+		self.light_stop_wpix = msg.data	
 
 		# Expect to receive the index into Waypoints closest to the TL		
-		rospy.logwarn("WPU: received Waypoints ix=%d to reduce velocity", self.light_stop_wpix)
+		rospy.logwarn("WPU: received Waypoints ix=%d to reduce velocity", msg.data)
 
-		car_closest_wpix = get_closest_waypoint(self.base_waypoints, self.car_pose)
+		#---Is Signal RED? ---------
+		if self.light_stop_wpix < 0:			
+	
+			car_closest_wpix = get_closest_waypoint(self.base_waypoints, self.car_pose)
 
-		# how many waypoints between car and TL
-		num_of_wps = self.light_stop_wpix - car_closest_wpix 
-		rospy.logwarn("number of waypoints between car and TL = %d", num_of_wps)		
-		if num_of_wps is 0:
-			rospy.logerror("num_of_wps == 0 !!!")
-			return
+			self.light_stop_wpix *= -1		# we know it is RED, so let focus on index
 
-		# calculate increments of velocity to decrease at each wp
-		vel_at_light_stop = self.get_waypoint_velocity( self.base_waypoints[self.light_stop_wpix] )
-		rospy.logwarn("velocity @ light_stop = %d", vel_at_light_stop)
+			num_of_wps = 10
+			# if we are not close enough to decelerate
+			if self.light_stop_wpix - car_closest_wpix > num_of_wps : 
+				rospy.logwarn("WPU: Not close enough to decelerate")
+				return
 
-		vel_incr = vel_at_light_stop / num_of_wps
-		rospy.logwarn(" Incremental velocity to decrease by is %f", vel_incr)
+			# calculate increments of velocity to decrease at each wp
+			vel_at_light_stop = self.get_waypoint_velocity( self.base_waypoints[self.light_stop_wpix] )
+			rospy.logwarn("WPU:velocity @ light_stop = %d", vel_at_light_stop)
 
-		# start from wp closest to car decreasing velocity until 0 @ light_stop
-		for i in range (num_of_wps):
-			velocity_to_set = vel_at_light_stop - (vel_incr * i)
-			rospy.logwarn("@ wp[%d] velocity will be set to %d", car_closest_wpix + i, velocity_to_set)
+			self.vel_incr = vel_at_light_stop / num_of_wps
+			rospy.logwarn("WPU Incremental velocity to decrease by is %f", self.vel_incr)
+
+			# start from wp closest to car decreasing velocity until 0 @ light_stop
+			for i in range (num_of_wps):
+				velocity_to_set = vel_at_light_stop - (self.vel_incr * i)
+				
+				rospy.logwarn("WPU- wp[%d] velocity will be set to %d", 
+													self.light_stop_wpix - num_of_wps + i, velocity_to_set)
+
+				self.set_waypoint_velocity( self.base_waypoints, 
+															 			self.light_stop_wpix - num_of_wps + i, 
+															 			velocity_to_set)
 
 			self.set_waypoint_velocity( self.base_waypoints, 
-														 			car_closest_wpix + i, 
-														 			velocity_to_set)
+														 			self.light_stop_wpix, 
+														 			0)
+	
+		#---------------------------------
+		else: 	# green, yellow or unknown
+	
+			# if previously was RED light and now likely GREEN, retore velocities 
+			if self.vel_incr == 0: 
+				rospy.logwarn("WPU: No need to restore velocity.... did not decelerate previously!!!")
+				return
+
+			# let's restore velocity at wps we decelerated above when TL was RED
+			rospy.logwarn("WPU: Light switched from RED to GREEN")
+
+			velocity_to_set = self.get_waypoint_velocity( self.base_waypoints[self.light_stop_wpix - num_of_wps] )
+			
+			for i in range (num_of_wps):
+				rospy.logwarn("WPU: wp[%d] velocity will be set to %d", 
+													self.light_stop_wpix - num_of_wps + i, velocity_to_set)
+
+				self.set_waypoint_velocity( self.base_waypoints, 
+															 			self.light_stop_wpix - num_of_wps + i, 
+															 			velocity_to_set)
+	
+	
+				
 		
 
 	#--------------------------------------------------------------
@@ -218,7 +260,7 @@ class WaypointUpdater(object):
 	def obstacle_cb(self, msg):
 
 		# TODO:  IMplement
-#		rospy.logdebug("In WPU:obstacle_cb")
+
 		rospy.logwarn("In WPU:obstacle_cb")
 
 
@@ -238,7 +280,8 @@ class WaypointUpdater(object):
 	#--------------------------------------------------------------
 	def set_waypoint_velocity(self, waypoints, waypoint, velocity):
 
-		rospy.logwarn("In WPU:set_waypoint_velocity self.base_waypoints[%d].velocity= %f", waypoint, velocity)
+		rospy.logwarn("In WPU:set_waypoint_velocity self.base_waypoints[%d].velocity= %f",
+																				waypoint, velocity)
 		waypoints[waypoint].twist.twist.linear.x = velocity
 
 
