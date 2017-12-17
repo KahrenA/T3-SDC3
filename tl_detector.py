@@ -71,11 +71,17 @@ class TLDetector(object):
 		#-------------------------------------------------------------------
 		def pose_cb(self, msg):
 
-			self.car_pose = msg
-			rospy.logwarn("tl_detector: Got car_pose = %d:%d", 
-												self.car_pose.pose.position.x, 
-														self.car_pose.pose.position.y)
-
+			if self.car_pose != None :
+				if (self.car_pose.pose.position.x == msg.pose.position.x) \
+															 and (self.car_pose.pose.position.y == msg.pose.position.y):
+					do_nothing = 1
+				else:
+					rospy.logwarn("tl_detector: Got car_pose = %f:%f msg_pose = %f:%f" , 
+													self.car_pose.pose.position.x, self.car_pose.pose.position.y, 
+														msg.pose.position.x, msg.pose.position.y)
+		
+			self.car_pose = msg		
+		
 			#wp_ix = self.get_closest_waypoint(self.car_pose.pose)	
 			#closest_light_ix = self.light_to_wp_map[wp_ix]
 			#rospy.logwarn("tl_d: pose_cb - closest light is at: %d:%d", 
@@ -154,7 +160,7 @@ class TLDetector(object):
 			#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
-			if state == TrafficLight.YELLOW or TrafficLight.state == RED:
+			if state == TrafficLight.YELLOW or TrafficLight.state == TrafficLight.RED:
 
 				#^^^^^ Publish Red Light.  ^^^^^^^^^^^^^^^^^^^^^^^^^
 				self.upcoming_red_light_pub.publish(Int32(stop_wp))

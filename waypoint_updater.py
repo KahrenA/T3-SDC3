@@ -41,6 +41,8 @@ class WaypointUpdater(object):
 		self.frame_id = None
 		self.light_i = None		# to be used when we get tf callback
 
+		self.closest_wp_index = None
+
 		rospy.logwarn ("WaypointUpdater:__init__ done!")
 
 		#rospy.spin()
@@ -62,18 +64,21 @@ class WaypointUpdater(object):
 #			rospy.logwarn ("In WPU loop: have waypoints and car_pose")
 			
 			# get the index closest waypoint to car 
-			closest_wp_index = get_closest_waypoint(self.base_waypoints, self.car_pose)
-			rospy.logwarn("WPULoop - closest_wo_index = %d", closest_wp_index)
+			index = get_closest_waypoint(self.base_waypoints, self.car_pose)
 
-			if closest_wp_index == -1 :
+			if index != self.closest_wp_index:
+				rospy.logwarn("WPULoop - closest_wp_index = %d", index)
+
+			self.closest_wp_index = index
+
+			if self.closest_wp_index == -1 :
 				rate.sleep()
 				continue
 
 #---------------------------------------------------------------
 			waypoints_ahead = []
 			for i in range(LOOKAHEAD_WPS):
-				ix = (closest_wp_index + i) % len(self.base_waypoints)
-#				w.twist.twist.linear.x = 25.0				# set the speed of the wps 
+				ix = (self.closest_wp_index + i) % len(self.base_waypoints)
 				waypoints_ahead.append(self.base_waypoints[ix])
 
 			# structure the data to match the expected styx_msgs/Lane form
@@ -96,7 +101,6 @@ class WaypointUpdater(object):
 	##======================================================
 	def pose_cb(self, msg):
 		# TODO: Implement
-		rospy.logdebug ("In WPU:pose_cb\n")
 
 		#------------------------------------------------------------------------
 		# the msg will be in PoseStamped format
@@ -179,11 +183,33 @@ class WaypointUpdater(object):
 
 		self.light_stop_wpix = msg.data
 
-		# zero out the velocity ar the index
-		
-	
 		# Expect to receive the index into Waypoints closest to the TL		
 		rospy.logwarn("WPU: received Waypoints ix=%d to reduce velocity", self.light_stop_wpix)
+
+		car_closest_wpix = get_closest_waypoint(self.base_waypoints, self.car_pose)
+
+		# how many waypoints between car and TL
+		num_of_wps = self.light_stop_wpix - car_closest_wpix 
+		rospy.logwarn("number of waypoints between car and TL = %d", num_of_wps)		
+		if num_of_wps is 0:
+			rospy.logerror("num_of_wps == 0 !!!")
+			return
+
+		# calculate increments of velocity to decrease at each wp
+		vel_at_light_stop = self.get_waypoint_velocity( self.base_waypoints[self.light_stop_wpix] )
+		rospy.logwarn("velocity @ light_stop = %d", vel_at_light_stop)
+
+		vel_incr = vel_at_light_stop / num_of_wps
+		rospy.logwarn(" Incremental velocity to decrease by is %f", vel_incr)
+
+		# start from wp closest to car decreasing velocity until 0 @ light_stop
+		for i in range (num_of_wps):
+			velocity_to_set = vel_at_light_stop - (vel_incr * i)
+			rospy.logwarn("@ wp[%d] velocity will be set to %d", car_closest_wpix + i, velocity_to_set)
+
+			self.set_waypoint_velocity( self.base_waypoints, 
+														 			car_closest_wpix + i, 
+														 			velocity_to_set)
 		
 
 	#--------------------------------------------------------------
@@ -198,7 +224,7 @@ class WaypointUpdater(object):
 
 
 	#--------------------------------------------------------------
-	# No caller yet? 
+	# Called from traffic_cb 
 	#--------------------------------------------------------------
 	def get_waypoint_velocity(self, waypoint):
 
@@ -208,11 +234,11 @@ class WaypointUpdater(object):
 
 
 	#--------------------------------------------------------------
-	# No caller yet??
+	# called from taffic_cb
 	#--------------------------------------------------------------
 	def set_waypoint_velocity(self, waypoints, waypoint, velocity):
 
-		rospy.logwarn("In WPUr:set_waypoint_velocity = %f", velocity)
+		rospy.logwarn("In WPU:set_waypoint_velocity self.base_waypoints[%d].velocity= %f", waypoint, velocity)
 		waypoints[waypoint].twist.twist.linear.x = velocity
 
 
