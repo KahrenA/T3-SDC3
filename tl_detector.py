@@ -83,12 +83,7 @@ class TLDetector(object):
 		
 			self.car_pose = msg		
 		
-			#wp_ix = self.get_closest_waypoint(self.car_pose.pose)	
-			#closest_light_ix = self.light_to_wp_map[wp_ix]
-			#rospy.logwarn("tl_d: pose_cb - closest light is at: %d:%d", 
-			#								self.waypoints[closest_light_ix].pose.pose.position.x,
-			#								self.waypoints[closest_light_ix].pose.pose.position.y)
-
+	
 
 		#-------------------------------------------------------------------
 		# callback for subscribing to /base_waypoints msg Waypoint loader 
@@ -126,17 +121,17 @@ class TLDetector(object):
 				for i in range (len(self.lights)):
 					wp_ix = self.get_closest_waypoint(self.lights[i].pose.pose)	
 					self.light_to_wp_map.append(wp_ix)
-					rospy.logwarn("TlD: traffic_cb - adding %d to light_to_wp_map", wp_ix)
+#					rospy.logwarn("TlD: traffic_cb - adding %d to light_to_wp_map", wp_ix)
 
 					#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-					rospy.logwarn("state of light %d is : %d", i, self.lights[i].state)
+#					rospy.logwarn("state of light %d is : %d", i, self.lights[i].state)
 					#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-				rospy.logwarn("LT----------------------------------------->WP mapping done!")	
+#				rospy.logwarn("LT----------------------------------------->WP mapping done!")	
 				
 				# debug let's print out the wp_ix captured in light_to_wp_map
-				for i in range (len(self.light_to_wp_map)):
-					rospy.logwarn("self.light_to_wp_map[%d] = %d", i, self.light_to_wp_map[i])
+#				for i in range (len(self.light_to_wp_map)):
+#					rospy.logwarn("self.light_to_wp_map[%d] = %d", i, self.light_to_wp_map[i])
 			
 
 			
@@ -151,7 +146,7 @@ class TLDetector(object):
 		#--------------------------------------------------------------------
 		def image_cb(self, msg):
 
-			rospy.logwarn("tl_detector: Got an image!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
+#			rospy.logwarn("tl_detector: Got an image!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
 
 			self.has_image = True
 			self.camera_image = msg
@@ -205,8 +200,8 @@ class TLDetector(object):
 				rospy.logerror("BAD RESULT! can't determine closest WP!")
 				return -1, TrafficLight.UNKNOWN 
 	
-			rospy.logwarn("process_traffic_light: closest wp index to car is %d", 
-													car_closest_wpix)
+#			rospy.logwarn("process_traffic_light: closest wp index to car is %d", 
+#													car_closest_wpix)
 
 			for i in range (len(self.light_to_wp_map)):
 				tl_closest_wpix = self.light_to_wp_map[i]			
@@ -215,8 +210,8 @@ class TLDetector(object):
 				if car_closest_wpix <= tl_closest_wpix :
 					break
 			
-			rospy.logwarn("Process_traffic_light: Closest TL to car is %d ", 
-													tl_closest_wpix)
+#			rospy.logwarn("Process_traffic_light: Closest TL to car is %d ", 
+#													tl_closest_wpix)
 						
 			
 			# List of positions that correspond line to stop in front of an intersection
@@ -228,7 +223,7 @@ class TLDetector(object):
 			stop_pose = self.create_pose(stop_pos[0], stop_pos[1], 0)
 
 			stop_line_wpix = self.get_closest_waypoint (stop_pose.pose)
-			rospy.logwarn("stop_line_wpix = %d", stop_line_wpix)
+#			rospy.logwarn("stop_line_wpix = %d", stop_line_wpix)
 
 			#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 			state = self.get_light_state(self.lights[i])
@@ -252,7 +247,7 @@ class TLDetector(object):
 			# -----------------------------------
 			# When simulating w/o classification
 			# TrafficLight.YELLOW; TrafficLight.RED; TrafficLight.GREEN; TrafficLight.UNKNOWN
-			rospy.logwarn("GET_LIGHT_STATE:::::::::::::::::::::: TRAFFIC LIGHT STATE %d", light.state)
+#			rospy.logwarn("GET_LIGHT_STATE:::::::::::::::::::::: TRAFFIC LIGHT STATE %d", light.state)
 			return light.state 
 		
 	

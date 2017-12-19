@@ -156,9 +156,9 @@ class DBWNode(object):
 		self.twist_linear_vel = msg.twist.linear.x
 		self.twist_angular_vel = msg.twist.angular.z
 
-#		if self.twist_linear_vel > 0.5:
-#			rospy.logwarn("In dbw:twist_cmd_cb : proposed_linear vel = %f, proposed_angular vel = %f", 
-#											self.twist_linear_vel, self.twist_angular_vel)
+		if self.twist_linear_vel > 0.5:
+			rospy.logwarn("DBW:twist_cmd_cb : proposed_linear vel = %f, proposed_angular vel = %f", 
+											self.twist_linear_vel, self.twist_angular_vel)
 
 
 

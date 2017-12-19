@@ -18,7 +18,7 @@ their current status in `/vehicle/traffic_lights` message. You can use this mess
 build this node as well as to verify your TL classifier.1
 '''
 
-LOOKAHEAD_WPS = 50 				# Number of waypoints we will publish. was 200
+LOOKAHEAD_WPS = 20 				# Number of waypoints we will publish. was 200
 
 
 class WaypointUpdater(object):
@@ -55,7 +55,7 @@ class WaypointUpdater(object):
 	def loop(self):
 
 		rospy.logdebug ("In WPU loop\n")
-		rate = rospy.Rate(50)
+		rate = rospy.Rate(2)	# 50
 		while not rospy.is_shutdown():
 
 			# wait for base_waypoints and pose info then 
@@ -79,11 +79,14 @@ class WaypointUpdater(object):
 
 #---------------------------------------------------------------
 			waypoints_ahead = []
+			rospy.logwarn("\n- preparing Lane - 20 waypoints!!!!")
+
 			for i in range(LOOKAHEAD_WPS):
 				ix = (self.closest_wp_index + i) % len(self.base_waypoints)
 				waypoints_ahead.append(self.base_waypoints[ix])
-
-#			rospy.logwarn("publishing Lane that starts from wp[%d] ----------> wp[%d]", self.closest_wp_index, self.closest_wp_index + LOOKAHEAD_WPS)
+	
+				rospy.logwarn("WPU:base_waypoints[%d].velocity = %f", ix, 
+									self.get_waypoint_velocity(self.base_waypoints[ix]) )
 
 			# structure the data to match the expected styx_msgs/Lane form
 			lane = Lane()
@@ -191,8 +194,10 @@ class WaypointUpdater(object):
 	
 		self.light_stop_wpix = msg.data	
 
+		num_of_wps = 20
+
 		# Expect to receive the index into Waypoints closest to the TL		
-		rospy.logwarn("WPU: received Waypoints ix=%d to reduce velocity", msg.data)
+#		rospy.logwarn("WPU: received Waypoints ix=%d to reduce velocity", msg.data)
 
 		#---Is Signal RED? ---------
 		if self.light_stop_wpix < 0:			
@@ -200,34 +205,45 @@ class WaypointUpdater(object):
 			car_closest_wpix = get_closest_waypoint(self.base_waypoints, self.car_pose)
 
 			self.light_stop_wpix *= -1		# we know it is RED, so let focus on index
+			rospy.logwarn("WPU: in RED light processing --- car_closest_wpix = %d", car_closest_wpix)
 
-			num_of_wps = 10
+			# if we've been here before and created deceleration values then don't do again
+			if self.vel_incr != 0:
+#				rospy.logwarn("WPU: set up to slowdown already!!!! no need to do it again")
+				return 
+
+
+	
 			# if we are not close enough to decelerate
-			if self.light_stop_wpix - car_closest_wpix > num_of_wps : 
-				rospy.logwarn("WPU: Not close enough to decelerate")
+			if self.light_stop_wpix - car_closest_wpix > 2*num_of_wps : 
+#				rospy.logwarn("WPU: Not close enough to decelerate")
 				return
+
 
 			# calculate increments of velocity to decrease at each wp
 			vel_at_light_stop = self.get_waypoint_velocity( self.base_waypoints[self.light_stop_wpix] )
-			rospy.logwarn("WPU:velocity @ light_stop = %d", vel_at_light_stop)
+#			rospy.logwarn("WPU:velocity @ light_stop = %d", vel_at_light_stop)
 
 			self.vel_incr = vel_at_light_stop / num_of_wps
-			rospy.logwarn("WPU Incremental velocity to decrease by is %f", self.vel_incr)
+#			rospy.logwarn("WPU Incremental velocity to decrease by is %f", self.vel_incr)
 
 			# start from wp closest to car decreasing velocity until 0 @ light_stop
 			for i in range (num_of_wps):
 				velocity_to_set = vel_at_light_stop - (self.vel_incr * i)
 				
-				rospy.logwarn("WPU- wp[%d] velocity will be set to %d", 
-													self.light_stop_wpix - num_of_wps + i, velocity_to_set)
+#				rospy.logwarn("WPU- wp[%d] velocity will be set to %d", 
+#													self.light_stop_wpix - num_of_wps + i, velocity_to_set)
 
 				self.set_waypoint_velocity( self.base_waypoints, 
 															 			self.light_stop_wpix - num_of_wps + i, 
-															 			velocity_to_set)
+#															 			velocity_to_set)
+																		0)			
 
-			self.set_waypoint_velocity( self.base_waypoints, 
-														 			self.light_stop_wpix, 
-														 			0)
+			# Let's fill the waypoints between TL stop point and TLight with 0s
+			for i in range (num_of_wps):			
+				self.set_waypoint_velocity( self.base_waypoints, 
+														 			  self.light_stop_wpix + i, 
+														 		   	0)
 	
 		#---------------------------------
 		else: 	# green, yellow or unknown
@@ -242,7 +258,7 @@ class WaypointUpdater(object):
 
 			velocity_to_set = self.get_waypoint_velocity( self.base_waypoints[self.light_stop_wpix - num_of_wps] )
 			
-			for i in range (num_of_wps):
+			for i in range (2*num_of_wps):
 				rospy.logwarn("WPU: wp[%d] velocity will be set to %d", 
 													self.light_stop_wpix - num_of_wps + i, velocity_to_set)
 
@@ -250,7 +266,8 @@ class WaypointUpdater(object):
 															 			self.light_stop_wpix - num_of_wps + i, 
 															 			velocity_to_set)
 	
-	
+			# restore vel_incr to 0 to mean we restore waypoint velocities 
+			self.vel_incr = 0
 				
 		
 
@@ -270,8 +287,8 @@ class WaypointUpdater(object):
 	#--------------------------------------------------------------
 	def get_waypoint_velocity(self, waypoint):
 
-		rospy.logwarn("In WPU:get_waypoint_velocity = %f", 
-																	waypoint.twist.twist.linear.x)
+#		rospy.logwarn("In WPU:get_waypoint_velocity = %f", 
+#																	waypoint.twist.twist.linear.x)
 		return waypoint.twist.twist.linear.x
 
 
@@ -280,8 +297,8 @@ class WaypointUpdater(object):
 	#--------------------------------------------------------------
 	def set_waypoint_velocity(self, waypoints, waypoint, velocity):
 
-		rospy.logwarn("In WPU:set_waypoint_velocity self.base_waypoints[%d].velocity= %f",
-																				waypoint, velocity)
+#		rospy.logwarn("In WPU:set_waypoint_velocity self.base_waypoints[%d].velocity= %f",
+#																				waypoint, velocity)
 		waypoints[waypoint].twist.twist.linear.x = velocity
 
 
