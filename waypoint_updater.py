@@ -55,7 +55,7 @@ class WaypointUpdater(object):
 	def loop(self):
 
 		rospy.logdebug ("In WPU loop\n")
-		rate = rospy.Rate(2)	# 50
+		rate = rospy.Rate(10)	# 50
 		while not rospy.is_shutdown():
 
 			# wait for base_waypoints and pose info then 
@@ -78,15 +78,45 @@ class WaypointUpdater(object):
 				continue
 
 #---------------------------------------------------------------
+	
+
+			# otherwise prepare next 	
 			waypoints_ahead = []
 			rospy.logwarn("\n- preparing Lane - 20 waypoints!!!!")
 
 			for i in range(LOOKAHEAD_WPS):
 				ix = (self.closest_wp_index + i) % len(self.base_waypoints)
-				waypoints_ahead.append(self.base_waypoints[ix])
 	
-				rospy.logwarn("WPU:base_waypoints[%d].velocity = %f", ix, 
-									self.get_waypoint_velocity(self.base_waypoints[ix]) )
+				# if we are in the mode of decelerating for a red light
+				if self.vel_incr != 0 :
+					rospy.logwarn("WPLoop: setting waypoints[%d] = 0", ix)
+					self.set_waypoint_velocity( self.base_waypoints, 
+															 			  ix, 
+														 			   	0)
+
+				waypoints_ahead.append(self.base_waypoints[ix])
+
+	
+#				rospy.logwarn("WPU:base_waypoints[%d].velocity = %f, lin_vel.y=%f, lin_vel.z= %f", 
+#											ix, 
+#											self.get_waypoint_velocity(self.base_waypoints[ix]), 
+#											self.base_waypoints[ix].twist.twist.linear.y,
+#											self.base_waypoints[ix].twist.twist.linear.z)
+
+#				rospy.logwarn("WPU:ang_vel.x = %f ang_vel.y=%f, ang_vel.z=%f", 
+#											self.base_waypoints[ix].twist.twist.angular.x, 
+#											self.base_waypoints[ix].twist.twist.angular.y,
+#											self.base_waypoints[ix].twist.twist.angular.z )
+
+
+#				rospy.logwarn("WPU: orientation.x=%f; orient.y = %f, orient.z=%f, orient.w=%f",
+#												self.base_waypoints[ix].pose.pose.orientation.x, 
+#												self.base_waypoints[ix].pose.pose.orientation.y,	
+#												self.base_waypoints[ix].pose.pose.orientation.z,
+#												self.base_waypoints[ix].pose.pose.orientation.w)
+
+
+
 
 			# structure the data to match the expected styx_msgs/Lane form
 			lane = Lane()
@@ -209,14 +239,14 @@ class WaypointUpdater(object):
 
 			# if we've been here before and created deceleration values then don't do again
 			if self.vel_incr != 0:
-#				rospy.logwarn("WPU: set up to slowdown already!!!! no need to do it again")
+				rospy.logwarn("WPU: set up to slowdown already!!!! no need to do it again")
 				return 
 
 
 	
 			# if we are not close enough to decelerate
 			if self.light_stop_wpix - car_closest_wpix > 2*num_of_wps : 
-#				rospy.logwarn("WPU: Not close enough to decelerate")
+				rospy.logwarn("WPU: Not close enough to decelerate")
 				return
 
 
@@ -231,8 +261,8 @@ class WaypointUpdater(object):
 			for i in range (num_of_wps):
 				velocity_to_set = vel_at_light_stop - (self.vel_incr * i)
 				
-#				rospy.logwarn("WPU- wp[%d] velocity will be set to %d", 
-#													self.light_stop_wpix - num_of_wps + i, velocity_to_set)
+				rospy.logwarn("WPU- wp[%d] velocity will be set to %d", 
+													self.light_stop_wpix - num_of_wps + i, velocity_to_set)
 
 				self.set_waypoint_velocity( self.base_waypoints, 
 															 			self.light_stop_wpix - num_of_wps + i, 
@@ -258,16 +288,16 @@ class WaypointUpdater(object):
 
 			velocity_to_set = self.get_waypoint_velocity( self.base_waypoints[self.light_stop_wpix - num_of_wps] )
 			
-			for i in range (2*num_of_wps):
-				rospy.logwarn("WPU: wp[%d] velocity will be set to %d", 
-													self.light_stop_wpix - num_of_wps + i, velocity_to_set)
-
-				self.set_waypoint_velocity( self.base_waypoints, 
-															 			self.light_stop_wpix - num_of_wps + i, 
-															 			velocity_to_set)
+#			for i in range (2*num_of_wps):
+#				rospy.logwarn("WPU: wp[%d] velocity will be set to %d", 
+#													self.light_stop_wpix - num_of_wps + i, velocity_to_set)
+#
+#				self.set_waypoint_velocity( self.base_waypoints, 
+#															 			self.light_stop_wpix - num_of_wps + i, 
+#															 			velocity_to_set)
 	
 			# restore vel_incr to 0 to mean we restore waypoint velocities 
-			self.vel_incr = 0
+###			self.vel_incr = 0
 				
 		
 

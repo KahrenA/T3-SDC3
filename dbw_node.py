@@ -58,7 +58,7 @@ class DBWNode(object):
 		self.max_lat_accel = rospy.get_param('~max_lat_accel', 3.)
 		self.max_steer_angle = rospy.get_param('~max_steer_angle', 8.)
 		self.max_throttle = rospy.get_param('~max_throttle_proportional', 0.8)
-		self.max_brake = rospy.get_param('~max_brake_proportional', -0.8)
+		self.max_brake = rospy.get_param('~max_brake_proportional', 3250)
 
 		rospy.logwarn("DBW: wheel_base=%f, max_steer_ratio=%f, max_throttle=%f, max_brake=%f",
 							self.wheel_base, self.steer_ratio, self.max_throttle, self.max_brake)	
@@ -90,7 +90,7 @@ class DBWNode(object):
 
 		rospy.logdebug("In dbw_node:loop\n")
 		
-		rate = rospy.Rate(50) # 50Hz
+		rate = rospy.Rate(10) # 50Hz
 		while not rospy.is_shutdown():
 
 			#-------------------------------------------------      
@@ -112,7 +112,7 @@ class DBWNode(object):
 																																self.max_brake) 																							
 			self.publish(throttle, brake, steer)
 
-#			rospy.logwarn("DWB-loop: Published throttle: %s, brake: %s, steering: %s", throttle, brake, steer)
+			rospy.logwarn("DWB-loop: Published throttle: %f; brake: %f, steering: %f", throttle, brake, steer)
 
 			rate.sleep()
 

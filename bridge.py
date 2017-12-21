@@ -19,6 +19,7 @@ from io import BytesIO
 import base64
 
 import math
+import random
 
 TYPE = {
     'bool': Bool,
@@ -42,7 +43,6 @@ class Bridge(object):
 	def __init__(self, conf, server):
 
 		rospy.init_node('styx_server', log_level=rospy.DEBUG)
-		rospy.logdebug("In Bridge:__init__")
 
 		self.server = server
 		self.vel = 0.
@@ -61,6 +61,7 @@ class Bridge(object):
 		self.publishers = {e.name: rospy.Publisher(e.topic, TYPE[e.type], queue_size=1)
                            for e in conf.publishers}
 
+		rospy.logwarn("Bridge:__init__Done!")
  
 	#--------------------------------------------------------------------------
 	# called from publish_traffic
@@ -86,8 +87,6 @@ class Bridge(object):
 	# Create a PoseStamped message and init with data provided
 	#---------------------------------------------------------------------------
 	def create_pose(self, x, y, z, yaw=0.):
-
-#		rospy.logdebug("In Bridge:create_pos")
 
 		pose = PoseStamped()
 
@@ -199,7 +198,6 @@ class Bridge(object):
 	#--------------------------------------------------------------------------
 	def publish_odometry(self, data):
 
-#		rospy.logdebug("In Bridge:publish_odometry")
 		pose = self.create_pose(data['x'], data['y'], data['z'], data['yaw'])
 
 		position = (data['x'], data['y'], data['z'])
@@ -218,7 +216,8 @@ class Bridge(object):
 																																	self.angular))
 		#...........................................................................
 
-		rospy.logdebug("Bridge:PubO incoming - lin_vel = %f, ang_vel = %f \n", self.vel, self.angular)
+		#rospy.logdebug("Bridge:PubO incoming - lin_vel = %f, ang_vel = %f\n", 
+		#													self.vel, self.angular)
 
 
 	#-----------------------------------------------------------------------------------
@@ -226,8 +225,6 @@ class Bridge(object):
 	# publish steering, throttle and brake messages
 	#-----------------------------------------------------------------------------------
 	def publish_controls(self, data):
-
-		rospy.logdebug("In Bridge:publish_controls")
 
 		steering, throttle, brake = data['steering_angle'], data['throttle'], \
 																data['brake']
@@ -315,7 +312,10 @@ class Bridge(object):
 	# --------------------------------------------------------------------------
 	def publish_camera(self, data):
 
-#		rospy.logdebug("In Bridge:publish_camera")
+		# reduce publishing frequency
+		if random.uniform(0, 1) > 0.1 :
+			rospy.logwarn("will not publish image******************************************")
+			return
 
 		imgString = data["image"]
 		image = PIL_Image.open(BytesIO(base64.b64decode(imgString)))
@@ -332,8 +332,7 @@ class Bridge(object):
 	#---------------------------------------------------------------------------------
 	def callback_steering(self, data):
 
-		rospy.logdebug("In Bridge:callback_steering")
-
+		#rospy.logdebug("In Bridge:callback_steering")
 		self.server('steer', data={'steering_angle': str(data.steering_wheel_angle_cmd)})
 
  
@@ -343,7 +342,7 @@ class Bridge(object):
 	#-------------------------------------------------------------------------------
 	def callback_throttle(self, data):
 
-		rospy.logdebug("In Bridge:callback_throttle")
+		#rospy.logdebug("In Bridge:callback_throttle")
 		self.server('throttle', data={'throttle': str(data.pedal_cmd)})
 
 
@@ -353,7 +352,7 @@ class Bridge(object):
 	#-------------------------------------------------------------------------------
 	def callback_brake(self, data):
 
-		rospy.logdebug("In Bridge:callback_brake")
+		#rospy.logdebug("In Bridge:callback_brake")
 		self.server('brake', data={'brake': str(data.pedal_cmd)})
 
 

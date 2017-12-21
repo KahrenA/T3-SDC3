@@ -15,6 +15,7 @@ import math
 from std_msgs.msg import Header
 from geometry_msgs.msg import PoseStamped, Quaternion, TwistStamped
 
+
 STATE_COUNT_THRESHOLD = 3
 
 class TLDetector(object):
@@ -52,8 +53,9 @@ class TLDetector(object):
 			self.upcoming_red_light_pub = rospy.Publisher('/traffic_waypoint', 
 																												Int32, queue_size=1)
 
-			self.bridge = CvBridge()
-			self.light_classifier = TLClassifier()
+			self.CVbridge = CvBridge()
+#			self.light_classifier = TLClassifier(modelpath="./FrozenSyam.pb")
+ 
 			self.listener = tf.TransformListener()
 
 			self.state = TrafficLight.UNKNOWN
@@ -146,8 +148,8 @@ class TLDetector(object):
 		#--------------------------------------------------------------------
 		def image_cb(self, msg):
 
-#			rospy.logwarn("tl_detector: Got an image!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
-
+			rospy.logwarn("tl_detector: Got an image!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
+	
 			self.has_image = True
 			self.camera_image = msg
 
@@ -218,13 +220,15 @@ class TLDetector(object):
 			stop_line_positions = self.config['stop_line_positions']
 
 			stop_pos = stop_line_positions[i]
-#			rospy.logwarn("stop_position is %d:%d", stop_pos[0], stop_pos[1])
 
 			stop_pose = self.create_pose(stop_pos[0], stop_pos[1], 0)
 
 			stop_line_wpix = self.get_closest_waypoint (stop_pose.pose)
 #			rospy.logwarn("stop_line_wpix = %d", stop_line_wpix)
 
+			#***********************************
+			stop_line_wpix = tl_closest_wpix
+			
 			#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 			state = self.get_light_state(self.lights[i])
 			#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -246,18 +250,21 @@ class TLDetector(object):
 
 			# -----------------------------------
 			# When simulating w/o classification
+			#------------------------------------
 			# TrafficLight.YELLOW; TrafficLight.RED; TrafficLight.GREEN; TrafficLight.UNKNOWN
+
 #			rospy.logwarn("GET_LIGHT_STATE:::::::::::::::::::::: TRAFFIC LIGHT STATE %d", light.state)
 			return light.state 
 		
 	
  			# -----------------------------------
-			# when we do classification ....        
+			# when we do classification ....  
+			#------------------------------------      
 			if(not self.has_image):
 				self.prev_light_loc = None
-				return False
+				return TrafficLight.UNKNOWN
 
-			cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
+			cv_image = self.Cvbridge.imgmsg_to_cv2(self.camera_image, "bgr8")
 
 			#^^^^^^^^^^^Get classification of light color^^^^^^^^^^^^
 			return self.light_classifier.get_classification(cv_image)
