@@ -148,7 +148,7 @@ class TLDetector(object):
 		#--------------------------------------------------------------------
 		def image_cb(self, msg):
 
-			rospy.logwarn("tl_detector: Got an image!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
+#			rospy.logwarn("tl_detector: Got an image!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
 	
 			self.has_image = True
 			self.camera_image = msg

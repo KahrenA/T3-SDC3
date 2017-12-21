@@ -314,7 +314,7 @@ class Bridge(object):
 
 		# reduce publishing frequency
 		if random.uniform(0, 1) > 0.1 :
-			rospy.logwarn("will not publish image******************************************")
+#			rospy.logwarn("will not publish image******************************************")
 			return
 
 		imgString = data["image"]

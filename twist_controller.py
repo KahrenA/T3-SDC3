@@ -66,15 +66,15 @@ class Controller(object):
 
 		vel_diff = proposed_vel_linear - current_vel_linear
 
-		rospy.logwarn("TC:t_b : sugg_vel_linear=%f curr_vel_linear=%f vel_diff = %f", 
-											proposed_vel_linear, current_vel_linear, vel_diff)
+#		rospy.logwarn("TC:t_b : sugg_vel_linear=%f curr_vel_linear=%f vel_diff = %f", 
+#											proposed_vel_linear, current_vel_linear, vel_diff)
 
 		throttle = 0.0
 		brake = 0.0 
 
 		# Let's prevent divide by 0
 		if proposed_vel_linear <= 0:
-			rospy.logwarn("applying max brake!!!")
+#			rospy.logwarn("TC:ctb-applying max brake!!!")
 			brake = max_brake
 
 		elif vel_diff > 0.1:
@@ -87,7 +87,6 @@ class Controller(object):
 			if brake < max_brake:
 				brake = max_brake
 
-#		rospy.logwarn("TC:t_b: throttle = %f --- brake = %f", throttle, brake)
 			
 		return throttle, brake	
 

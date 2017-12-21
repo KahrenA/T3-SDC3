@@ -88,7 +88,7 @@ class DBWNode(object):
 	#---------------------------------------
 	def loop(self):
 
-		rospy.logdebug("In dbw_node:loop\n")
+#		rospy.logdebug("In dbw_node:loop\n")
 		
 		rate = rospy.Rate(10) # 50Hz
 		while not rospy.is_shutdown():
@@ -112,7 +112,7 @@ class DBWNode(object):
 																																self.max_brake) 																							
 			self.publish(throttle, brake, steer)
 
-			rospy.logwarn("DWB-loop: Published throttle: %f; brake: %f, steering: %f", throttle, brake, steer)
+#			rospy.logwarn("DWB-loop: Published throttle: %f; brake: %f, steering: %f", throttle, brake, steer)
 
 			rate.sleep()
 
@@ -156,9 +156,9 @@ class DBWNode(object):
 		self.twist_linear_vel = msg.twist.linear.x
 		self.twist_angular_vel = msg.twist.angular.z
 
-		if self.twist_linear_vel > 0.5:
-			rospy.logwarn("DBW:twist_cmd_cb : proposed_linear vel = %f, proposed_angular vel = %f", 
-											self.twist_linear_vel, self.twist_angular_vel)
+#		if self.twist_linear_vel > 0.5:
+#			rospy.logwarn("DBW:twist_cmd_cb : proposed_linear vel = %f, proposed_angular vel = %f", 
+#											self.twist_linear_vel, self.twist_angular_vel)
 
 
 

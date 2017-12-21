@@ -36,22 +36,20 @@ bridge = Bridge(conf, send)
 @sio.on('telemetry')
 def telemetry(sid, data):
 
-	rospy.logdebug("In server:telemetry\n")
-
-
 	global dbw_enable
-	rospy.logdebug("IN telemetry: data[dbw_enable] = %d; and dbw_enable flag = %d\n", 
-										data["dbw_enable"], dbw_enable)
+#	rospy.logdebug("In telemetry: data[dbw_enable] = %d; and dbw_enable flag = %d\n", 
+#										data["dbw_enable"], dbw_enable)
 
 	if data["dbw_enable"] != dbw_enable:
 		dbw_enable = data["dbw_enable"]
 		bridge.publish_dbw_status(dbw_enable)
+
 	bridge.publish_odometry(data)
 
 	for i in range(len(msgs)):
 		topic, data = msgs.pop(0)
 		sio.emit(topic, data=data, skip_sid=True)
-		rospy.logwarn("In telemetry-send. topic = %s; data = %s", topic, data)
+		#rospy.logwarn("In telemetry-send. topic = %s; data = %s", topic, data)
 
 
 #------------------------------------------------------
